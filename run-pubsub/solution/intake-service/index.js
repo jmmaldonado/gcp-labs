@@ -21,5 +21,5 @@ app.post('/', async (req, res) => {
 })
 async function publishPubSubMessage(message) {
   const buffer = Buffer.from(JSON.stringify(message));
-  await pubsub.topic('new-lab-report').publish(buffer);
+  await pubsub.topic('new-message').publish(buffer);
 }
