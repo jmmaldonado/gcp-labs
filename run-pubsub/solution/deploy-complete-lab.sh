@@ -68,7 +68,7 @@ cd ..
 export INTAKE_SERVICE_URL=$(gcloud run services describe intake-service --platform managed --region us-east1 --format="value(status.address.url)")
 export EXECUTION_SERVICE_URL=$(gcloud run services describe execution-service --platform managed --region us-east1 --format="value(status.address.url)")
 export NOTIFICATION_SERVICE_URL=$(gcloud run services describe notification-service --platform managed --region us-east1 --format="value(status.address.url)")
-export PROJECT_NUMBER=$(gcloud projects list --filter="qwiklabs-gcp" --format='value(PROJECT_NUMBER)')
+export PROJECT_NUMBER=$(gcloud projects list --filter="$GOOGLE_CLOUD_PROJECT" --format='value(PROJECT_NUMBER)')
 
 
 ### CREATE A SERVICE ACCOUNT TO INVOKE CLOUD RUN SERVICES, GRANT IAM PERMISSIONS TO CREATE TOKENS AND INVOKE CLOUD RUN
