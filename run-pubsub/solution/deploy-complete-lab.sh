@@ -102,3 +102,14 @@ curl -X POST -H "Content-Type: application/json" -d "{\"id\": 56}" $INTAKE_SERVI
 gcloud beta run services logs read intake-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
 gcloud beta run services logs read execution-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
 gcloud beta run services logs read notification-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
+
+
+### DELETE EVERYTHING
+gcloud run services delete intake-service --region us-east1 --quiet
+gcloud run services delete execution-service --region us-east1 --quiet
+gcloud run services delete notification-service --region us-east1 --quiet
+gcloud pubsub topics delete new-message --quiet
+gcloud pubsub subscriptions delete execution-service-sub
+gcloud pubsub subscriptions delete notification-service-sub
+gcloud projects remove-iam-policy-binding $GOOGLE_CLOUD_PROJECT --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com --role=roles/iam.serviceAccountTokenCreator
+gcloud iam service-accounts delete pubsub-cloud-run-invoker@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com --quiet
