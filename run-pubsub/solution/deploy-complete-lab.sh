@@ -1,32 +1,24 @@
-### ENABLE APIs AND CREATE PUBSUB TOPIC
+### ENABLE APIs
 gcloud services enable run.googleapis.com
 gcloud services enable pubsub.googleapis.com
-gcloud pubsub topics create new-message
+gcloud services enable cloudbuild.googleapis.com
 
 
-### INSTALL DEPENDENCIES FOR ALL THE SERVICES
-cd intake-service
-npm install express
-npm install body-parser
-npm install @google-cloud/pubsub
-cd ..
+### CLONE GITHUB REPO
+cd ~
+git clone https://github.com/jmmaldonado/gcp-labs.git
 
-cd execution-service
-npm install express
-npm install body-parser
-cd ..
 
-cd notification-service
-npm install express
-npm install body-parser
-cd ..
+### INSTALL DEPENDENCIES FOR THE APPLICATION CODE
+cd ~/gcp-labs/run-pubsub/solution
+cd intake-service && npm install express body-parser @google-cloud/pubsub && cd ..
+cd execution-service && npm install express body-parser && cd ..
+cd notification-service && npm install express body-parser && cd ..
 
 
 ### DEPLOY INTAKE SERVICE
 cd intake-service
-gcloud builds submit \
-  --tag gcr.io/$GOOGLE_CLOUD_PROJECT/intake-service
-  
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/intake-service
 gcloud run deploy intake-service \
   --image gcr.io/$GOOGLE_CLOUD_PROJECT/intake-service \
   --platform managed \
@@ -38,9 +30,7 @@ cd ..
 
 ### DEPLOY EXECUTION SERVICE
 cd execution-service
-gcloud builds submit \
-  --tag gcr.io/$GOOGLE_CLOUD_PROJECT/execution-service
-
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/execution-service
 gcloud run deploy execution-service \
   --image gcr.io/$GOOGLE_CLOUD_PROJECT/execution-service \
   --platform managed \
@@ -52,9 +42,7 @@ cd ..
 
 ### DEPLOY NOTIFICATION SERVICE
 cd notification-service
-gcloud builds submit \
-  --tag gcr.io/$GOOGLE_CLOUD_PROJECT/notification-service
-
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/notification-service
 gcloud run deploy notification-service \
   --image gcr.io/$GOOGLE_CLOUD_PROJECT/notification-service \
   --platform managed \
@@ -71,6 +59,14 @@ export NOTIFICATION_SERVICE_URL=$(gcloud run services describe notification-serv
 export PROJECT_NUMBER=$(gcloud projects list --filter="$GOOGLE_CLOUD_PROJECT" --format='value(PROJECT_NUMBER)')
 
 
+### CREATE PUBSUB TOPIC
+gcloud pubsub topics create new-message
+
+
+### ASSIGN pubsub.publish PERMISSIONS TO THE DEFAULT SERVICE ACCOUNT (CLOUD RUN USES IT) TO THAT TOPIC
+gcloud pubsub topics add-iam-policy-binding projects/$GOOGLE_CLOUD_PROJECT/topics/new-message --member=serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com --role=roles/pubsub.publisher
+
+
 ### CREATE A SERVICE ACCOUNT TO INVOKE CLOUD RUN SERVICES, GRANT IAM PERMISSIONS TO CREATE TOKENS AND INVOKE CLOUD RUN
 gcloud iam service-accounts create pubsub-cloud-run-invoker --display-name "PubSub Cloud Run Invoker"
 gcloud run services add-iam-policy-binding execution-service --member=serviceAccount:pubsub-cloud-run-invoker@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com --role=roles/run.invoker --region us-east1 --platform managed
@@ -81,6 +77,28 @@ gcloud run services add-iam-policy-binding notification-service --member=service
 gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com --role=roles/iam.serviceAccountTokenCreator
 
 
+### SEND SOME SAMPLE MESSAGES TO THE INTAKE SERVICE
+curl -X POST -H "Content-Type: application/json" -d "{\"id\": 12}" $INTAKE_SERVICE_URL &
+curl -X POST -H "Content-Type: application/json" -d "{\"id\": 34}" $INTAKE_SERVICE_URL &
+curl -X POST -H "Content-Type: application/json" -d "{\"id\": 56}" $INTAKE_SERVICE_URL &
+
+
+### CHECK INTAKE SERVICE LOGS TO SEE THE HTTP 204 CODES (MESSAGE SENT SUCCESSFULLY)
+gcloud beta run services logs read intake-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
+
+
 ### CREATE PUB/SUB SUBSCRIPTIONS FOR THE EXECUTION AND NOTIFICATION SERVICES
 gcloud pubsub subscriptions create execution-service-sub --topic new-message --push-endpoint=$EXECUTION_SERVICE_URL --push-auth-service-account=pubsub-cloud-run-invoker@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com
 gcloud pubsub subscriptions create notification-service-sub --topic new-message --push-endpoint=$NOTIFICATION_SERVICE_URL --push-auth-service-account=pubsub-cloud-run-invoker@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com
+
+
+### SEND SOME MORE SAMPLE MESSAGES TO THE INTAKE SERVICE AND SEE IF THEY HIT THE OTHER TWO SERVICES
+curl -X POST -H "Content-Type: application/json" -d "{\"id\": 12}" $INTAKE_SERVICE_URL &
+curl -X POST -H "Content-Type: application/json" -d "{\"id\": 34}" $INTAKE_SERVICE_URL &
+curl -X POST -H "Content-Type: application/json" -d "{\"id\": 56}" $INTAKE_SERVICE_URL &
+
+
+### CHECK INTAKE SERVICE LOGS TO SEE THE HTTP 204 CODES (MESSAGE SENT SUCCESSFULLY)
+gcloud beta run services logs read intake-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
+gcloud beta run services logs read execution-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
+gcloud beta run services logs read notification-service --limit 20 --project $GOOGLE_CLOUD_PROJECT --region us-east1
